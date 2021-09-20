@@ -122,7 +122,11 @@ contract PowDAO {
         require(allowanceAvailable > 0, "You do not have any funds available.");
 
         if (allowanceAvailable != 0 && allowanceAvailable > 0) {
+<<<<<<< HEAD
             addressOfProposer.call.value(allowanceAvailable)("");   // can also be: addressOfProposer.transfer(allowanceAvailable) 
+=======
+            addressOfProposer.call.value(allowanceAvailable)("");   // addressOfProposer.transfer(allowanceAvailable) // Move down below _decreasePayout to create Re-Entrancy vulnerabilty.
+>>>>>>> 87937fee2dd4107e9919c720701779458ea240c4
             _decreasePayout(addressOfProposer, allowanceAvailable);
             // console.log("transfer success");
             emit Withdraw(addressOfProposer, allowanceAvailable);
@@ -261,7 +265,11 @@ contract PowDAO {
                 }
                 else{
                     prop.flags[1] = true;
+<<<<<<< HEAD
                     _cancelProposal(proposalId);
+=======
+                    cancelProposal(proposalId);
+>>>>>>> 87937fee2dd4107e9919c720701779458ea240c4
                 }
         }
         if(prop.flags[4] == false && prop.flags[5] == false) {
@@ -272,7 +280,11 @@ contract PowDAO {
             }
             else{
                 prop.flags[1] = true;
+<<<<<<< HEAD
                 _cancelProposal(proposalId);
+=======
+                cancelProposal(proposalId);
+>>>>>>> 87937fee2dd4107e9919c720701779458ea240c4
             }
 
             emit ProcessedProposal(prop.proposer, prop.paymentRequested, prop.details, prop.flags, proposalId, prop.proposer);

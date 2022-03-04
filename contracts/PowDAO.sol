@@ -1,23 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Code snippets taken from MulockDAO v2 https://github.com/MolochVentures/moloch/blob/master/contracts/Moloch.sol
 
-// Quickly initiate a DAO by sending an array of address in the constructor of this contract on deploy. 
+// Quickly initiate a DAO by sending an array of address in the constructor of this contract on deploy.
 // DAO proposals can be created by anyone, but only voted on by members.
-// Members can create proposals to add or kick members. 
+// Members can create proposals to add or kick members.
 // Members cannot withdraw their deposited funds once they are deposited. All deposited funds will be used for the good of the DAO.
 // Public Goods...
-// This type of DAO can be used by sports teams to pay for field time, equipment, travel, etc. Another use case is for public contruction or maintenance projects. 
-// A neighborhood/ town/ governoment can deposit a bunch of funds which can be democratically voted on and invoices can be submitted by the contractors.  
+// This type of DAO can be used by sports teams to pay for field time, equipment, travel, etc. Another use case is for public contruction or maintenance projects.
+// A neighborhood/ town/ governoment can deposit a bunch of funds which can be democratically voted on and invoices can be submitted by the contractors.
 
-pragma solidity 0.6.7;
+pragma solidity 0.8.4;
 
-// import "hardhat/console.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
+import "hardhat/console.sol";
 
-
-contract PowDAO { 
-    
-    using SafeMath for uint256;
+contract PowDAO {
 
     // GLOBAL CONSTANTS
     // ***************
@@ -31,19 +27,24 @@ contract PowDAO {
     uint256 public totalShares = 0; // total shares across all members
     uint256 public totalLoot = 0; // total loot across all members
     uint256[] public proposalQueue;
-    
-    // EVENTS
-    // ***************
-    event SubmitProposal(address proposer, uint256 paymentRequested, string details, bool[6] flags, uint256 proposalId, address indexed senderAddress);
-    event SubmitVote(uint256 indexed proposalIndex, address indexed delegateKey, address indexed memberAddress, uint8 uintVote);
-    event CancelProposal(uint256 indexed proposalId, address applicantAddress);
-    event ProcessedProposal(address proposer, uint256 paymentRequested, string details, bool[6] flags, uint256 proposalId, address indexed senderAddress);
-    event Deposit(uint256 amount);
-    event Withdraw(address proposerAddress, uint256 amount); 
+
+    address public constant GUILD = address(0xdead);
+    address public constant ESCROW = address(0xbeef);
+    address public constant TOTAL = address(0xbabe);
+    mapping (address => mapping(address => uint256)) public userTokenBalances; // userTokenBalances[userAddress][tokenAddress]
 
     mapping (uint256 => Proposal) public proposals;
     mapping (address => Member) public members;
     mapping (address => uint256) private _payoutTotals;   // The beneficiaries address and how much they are approved for.
+
+    // EVENTS
+    // ***************
+    event SubmitProposal(address proposer, uint256 paymentRequested, string details, bool[6] flags, uint256 proposalId, address indexed senderAddress);
+    event SubmitVote(uint256 indexed proposalIndex, address indexed memberAddress, uint8 uintVote);
+    event CancelProposal(uint256 indexed proposalId, address applicantAddress);
+    event ProcessedProposal(address proposer, uint256 paymentRequested, string details, bool[6] flags, uint256 proposalId, address indexed senderAddress);
+    event Deposit(uint256 amount);
+    event Withdraw(address proposerAddress, uint256 amount);
 
     struct Member {
         uint256 shares; // the # of voting shares assigned to this member
@@ -65,7 +66,7 @@ contract PowDAO {
     }
 
     enum Vote {
-        Null, // default value, counted as abstention
+        Null, // default value, counted as abstent
         Yes,
         No
     }
@@ -74,16 +75,16 @@ contract PowDAO {
         require(members[msg.sender].shares > 0, "Your are not a member of the PowDAO.");
         _;
     }
-    
+
     // CONSTRUCTOR
     // ***************
-    // Members imported as an array. Only members can vote on a proposal. 
-    constructor(address[] memory approvedMembers) public {
+    // Members imported as an array. Only members can vote on a proposal.
+    constructor(address[] memory approvedMembers) {
         for(uint256 i=0; i < approvedMembers.length; i++) {
              members[approvedMembers[i]] = Member(1, 0, true, 0);
         }
 
-        summoningTime = now;
+        summoningTime = block.timestamp;
         periodDuration = 17280; // 5 periods/ day = 17280, 35 periods/day = 102.85714
         votingPeriodLength = 60; // 7 days = 604800, 1 hr = 3600
     }
@@ -117,20 +118,17 @@ contract PowDAO {
     }
 
     // A proposer calls function and if address has an allowance, recieves ETH in return.
-    function getPayout(address payable addressOfProposer) public returns (bool) {
-        uint256 allowanceAvailable = _payoutTotals[addressOfProposer];  // Get the available allowance first amd store in uint256. 
+    function getPayout(address addressOfProposer) public {
+        uint256 allowanceAvailable = _payoutTotals[addressOfProposer];  // Get the available allowance first amd store in uint256.
         require(allowanceAvailable > 0, "You do not have any funds available.");
 
         if (allowanceAvailable != 0 && allowanceAvailable > 0) {
-<<<<<<< HEAD
-            addressOfProposer.call.value(allowanceAvailable)("");   // can also be: addressOfProposer.transfer(allowanceAvailable) 
-=======
-            addressOfProposer.call.value(allowanceAvailable)("");   // addressOfProposer.transfer(allowanceAvailable) // Move down below _decreasePayout to create Re-Entrancy vulnerabilty.
->>>>>>> 87937fee2dd4107e9919c720701779458ea240c4
+            payable(addressOfProposer).transfer(allowanceAvailable);
+            payable(addressOfProposer).transfer(allowanceAvailable);  // Move down below _decreasePayout to create Re-Entrancy vulnerabilty.
             _decreasePayout(addressOfProposer, allowanceAvailable);
-            // console.log("transfer success");
             emit Withdraw(addressOfProposer, allowanceAvailable);
-            return true;
+        } else {
+            emit Withdraw(addressOfProposer, allowanceAvailable);
         }
     }
 
@@ -138,11 +136,11 @@ contract PowDAO {
     // DO NOT USE IN PRODUCTION!!!!!!!!
     /*
     function getPayoutUnsafe(address payable addressOfProposer) public returns (bool) {
-        uint256 allowanceAvailable = _payoutTotals[addressOfProposer];  // Get the available allowance first amd store in uint256. 
+        uint256 allowanceAvailable = _payoutTotals[addressOfProposer];  // Get the available allowance first amd store in uint256.
         require(allowanceAvailable > 0, "You do not have any funds available.");
 
         if (allowanceAvailable != 0 && allowanceAvailable > 0) {
-            addressOfProposer.call.value(_payoutTotals[addressOfProposer])("");   
+            addressOfProposer.call.value(_payoutTotals[addressOfProposer])("");
             _decreasePayout(addressOfProposer, _payoutTotals[addressOfProposer]);
             // console.log("transfer success");
             emit Withdraw(addressOfProposer, allowanceAvailable);
@@ -153,8 +151,8 @@ contract PowDAO {
 
     // MEMBER FUNCTIONS
     //*****************
-    // Vote on adding new members who want to contribute funds or work. 
-    // OR kick members who do not contribute. 
+    // Vote on adding new members who want to contribute funds or work.
+    // OR kick members who do not contribute.
     function addMember(address newMemAddress, string memory details) public onlyMember {
         _SubmitMemberProposal(newMemAddress, details, 0); // 0 adds a member
     }
@@ -169,11 +167,11 @@ contract PowDAO {
             Proposal storage prop = proposals[proposalCount];
             prop.proposer = entity;
             prop.paymentRequested = 0;
-            prop.startingTime = now;
+            prop.startingTime = block.timestamp;
             prop.flags = [false, false, false, false, true, false]; // memberAdd
             prop.details = details;
             prop.exists = true;
-            
+
             emit SubmitProposal(prop.proposer, 0, prop.details, prop.flags, proposalCount, msg.sender);
             proposalCount += 1;
         }
@@ -182,21 +180,21 @@ contract PowDAO {
             Proposal storage prop = proposals[proposalCount];
             prop.proposer = entity;
             prop.paymentRequested = 0;
-            prop.startingTime = now;
+            prop.startingTime = block.timestamp;
             prop.flags = [false, false, false, false, false, true]; // memberkick
             prop.details = details;
             prop.exists = true;
-            
+
             emit SubmitProposal(prop.proposer, 0, prop.details, prop.flags, proposalCount, msg.sender);
             proposalCount += 1;
         }
     }
-    
+
     // PROPOSAL FUNCTIONS
     // ***************
     // SUBMIT PROPOSAL, public function
     // Set applicant, paymentRequested, timelimit, details.
-    // All payments made in the native currency. 
+    // All payments made in the native currency.
     function submitProposal(uint256 paymentRequested, string memory details) public returns (uint256 proposalId) {
         address applicant = msg.sender;
         require(applicant != address(0), "applicant cannot be 0");
@@ -212,12 +210,12 @@ contract PowDAO {
         Proposal storage prop = proposals[proposalCount];
         prop.proposer = msg.sender;
         prop.paymentRequested = paymentRequested;
-        prop.startingTime = now;
+        prop.startingTime = block.timestamp;
         prop.flags = flags;
         prop.details = details;
         prop.exists = true;
         address memberAddress = msg.sender;
-        emit SubmitProposal(msg.sender, paymentRequested, details, flags, proposalCount, msg.sender);
+        emit SubmitProposal(msg.sender, paymentRequested, details, flags, proposalCount, memberAddress);
         proposalCount += 1;
     }
 
@@ -226,11 +224,11 @@ contract PowDAO {
         Proposal storage proposal = proposals[proposalId];
         require(!proposal.flags[3], "proposal has already been cancelled");
         proposal.flags[3] = true; // cancelled
-        
+
         emit CancelProposal(proposalId, msg.sender);
     }
 
-    // Function which can be called when the proposal voting time has expired. To either act on the proposal or cancel if not a majority yes vote. 
+    // Function which can be called when the proposal voting time has expired. To either act on the proposal or cancel if not a majority yes vote.
     function processProposal(uint256 proposalId) public onlyMember returns (bool) {
         require(proposals[proposalId].exists, "This proposal does not exist.");
         require(proposals[proposalId].flags[1] == false, "This proposal has already been processed");
@@ -246,7 +244,7 @@ contract PowDAO {
         Proposal storage prop = proposals[proposalId];
 
         // flags = [sponsored, processed, didPass, cancelled, memberAdd, memberKick]
-        if(prop.flags[4] == true) { // Member add 
+        if(prop.flags[4] == true) { // Member add
             if(prop.yesVotes > prop.noVotes) {
                 members[prop.proposer] = Member(1, 0, true, 0);
                 prop.flags[1] = true;
@@ -256,6 +254,7 @@ contract PowDAO {
                 prop.flags[1] = true;
                 prop.flags[3] = true;
             }
+            return true;
         }
         if(prop.flags[5] == true) { // Member kick
             if(prop.yesVotes > prop.noVotes) {
@@ -265,11 +264,7 @@ contract PowDAO {
                 }
                 else{
                     prop.flags[1] = true;
-<<<<<<< HEAD
                     _cancelProposal(proposalId);
-=======
-                    cancelProposal(proposalId);
->>>>>>> 87937fee2dd4107e9919c720701779458ea240c4
                 }
         }
         if(prop.flags[4] == false && prop.flags[5] == false) {
@@ -280,30 +275,23 @@ contract PowDAO {
             }
             else{
                 prop.flags[1] = true;
-<<<<<<< HEAD
                 _cancelProposal(proposalId);
-=======
-                cancelProposal(proposalId);
->>>>>>> 87937fee2dd4107e9919c720701779458ea240c4
             }
-
             emit ProcessedProposal(prop.proposer, prop.paymentRequested, prop.details, prop.flags, proposalId, prop.proposer);
             return true;
         }
-    } 
+    }
 
-    // Function to submit a vote to a proposal if you are a member of the DAO and you have not voted yet. 
+    // Function to submit a vote to a proposal if you are a member of the DAO and you have not voted yet.
     // Voting period must be in session
     function submitVote(uint256 proposalId, uint8 uintVote) public onlyMember {
         require(members[msg.sender].exists, "Your are not a member of the PowDAO.");
         require(proposals[proposalId].exists, "This proposal does not exist.");
-
+        require(uintVote < 3, "must be less than 3");
+        Vote vote = Vote(uintVote);
         address memberAddress = msg.sender;
         Member storage member = members[memberAddress];
         Proposal storage prop = proposals[proposalId];
-
-        require(uintVote < 3, "must be less than 3");
-        Vote vote = Vote(uintVote);
 
         require(getCurrentTime() >= prop.startingTime, "voting period has not started");
         require(!hasVotingPeriodExpired(prop.startingTime), "proposal voting period has expired");
@@ -313,14 +301,13 @@ contract PowDAO {
         prop.votesByMember[memberAddress] = vote;
 
         if (vote == Vote.Yes) {
-            prop.yesVotes = prop.yesVotes.add(member.shares);
+            prop.yesVotes = prop.yesVotes + member.shares;
 
-        } 
-        else if (vote == Vote.No) {
-            prop.noVotes = prop.noVotes.add(member.shares);
         }
-     
-        emit SubmitVote(proposalId, msg.sender, memberAddress, uintVote);
+        else if (vote == Vote.No) {
+            prop.noVotes = prop.noVotes + member.shares;
+        }
+        emit SubmitVote(proposalId, memberAddress, uintVote);
     }
 
     // Function to receive Ether, msg.data must be empty
@@ -332,7 +319,7 @@ contract PowDAO {
         uint256 deposited = msg.value;
         payable(address(this)).transfer(deposited);
         emit Deposit(msg.value);
-        return(deposited);   
+        return(deposited);
     }
 
     // GETTER FUNCTIONS
@@ -364,7 +351,7 @@ contract PowDAO {
     }
 
 
-    
+
     // HELPER FUNCTIONS
     //*****************
     function unsafeAddToBalance(address user, address token, uint256 amount) internal {
@@ -381,7 +368,7 @@ contract PowDAO {
     }
 
     function hasVotingPeriodExpired(uint256 startingTime) public view returns (bool) {
-        return (getCurrentTime() >= startingTime.add(votingPeriodLength));
+        return (getCurrentTime() >= (startingTime + votingPeriodLength));
     }
-    
+
 }

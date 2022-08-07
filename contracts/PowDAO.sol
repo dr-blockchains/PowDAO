@@ -66,7 +66,7 @@ contract PowDAO {
     }
 
     enum Vote {
-        Null, // default value, counted as abstent
+        Null, // default value, counted as absent
         Yes,
         No
     }

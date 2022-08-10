@@ -95,11 +95,8 @@ contract PowDAO {
 
     // Internal function
     function _increasePayout(address recipient, uint256 addedValue) internal returns (bool) {
-        uint256 currentBalance = 0;
-        if(_payoutTotals[recipient] != 0) {
-            currentBalance = _payoutTotals[recipient];
-        }
-        _payoutTotals[recipient] = addedValue + currentBalance;
+        // The if statement is not helping.
+        _payoutTotals[recipient] = addedValue + _payoutTotals[recipient];
         return true;
     }
 

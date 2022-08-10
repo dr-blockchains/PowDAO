@@ -120,16 +120,10 @@ contract PowDAO {
     // A proposer calls function and if address has an allowance, recieves ETH in return.
     function getPayout(address addressOfProposer) public {
         uint256 allowanceAvailable = _payoutTotals[addressOfProposer];  // Get the available allowance first amd store in uint256.
-        require(allowanceAvailable > 0, "You do not have any funds available.");
-
-        if (allowanceAvailable != 0 && allowanceAvailable > 0) {
-            payable(addressOfProposer).transfer(allowanceAvailable);
-            payable(addressOfProposer).transfer(allowanceAvailable);  // Move down below _decreasePayout to create Re-Entrancy vulnerabilty.
-            _decreasePayout(addressOfProposer, allowanceAvailable);
-            emit Withdraw(addressOfProposer, allowanceAvailable);
-        } else {
-            emit Withdraw(addressOfProposer, allowanceAvailable);
-        }
+        require(allowanceAvailable > 0, "You do not have any funds available."); // No if statement is necessary. 
+        payable(addressOfProposer).transfer(allowanceAvailable);  // Move down below _decreasePayout to create Re-Entrancy vulnerabilty.
+        _decreasePayout(addressOfProposer, allowanceAvailable);
+        emit Withdraw(addressOfProposer, allowanceAvailable);
     }
 
     // getPayout function with built in re-entrancy vulnerability.
